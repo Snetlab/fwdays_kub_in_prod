@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: course-platform
+  namespace: argocd
+spec:
+  description: Platform Engineering lab
+  sourceRepos:
+    - https://github.com/Snetlab/Kubernetes_in_Production.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: kyverno
+  clusterResourceWhitelist:
+    - group: kyverno.io
+      kind: ClusterPolicy
+  namespaceResourceBlacklist:
+    - group: '*'
+      kind: '*'

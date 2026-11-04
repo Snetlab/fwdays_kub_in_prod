@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kyverno-policies
+description: Course policies for Pod labels and read-only root filesystem auditing
+type: application
+version: 0.1.0

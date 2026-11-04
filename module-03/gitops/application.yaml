@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: course-kyverno-policies
+  namespace: argocd
+spec:
+  project: course-platform
+  source:
+    repoURL: https://github.com/Snetlab/Kubernetes_in_Production.git
+    targetRevision: homework/module-03
+    path: module-03/charts/kyverno-policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - FailOnSharedResource=true
