@@ -1,0 +1,33 @@
+defaultRules:
+  create: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+grafana:
+  persistence:
+    enabled: true
+    size: 1Gi
+  sidecar:
+    dashboards:
+      enabled: true
+  additionalDataSources:
+    - name: Loki
+      uid: course-loki
+      type: loki
+      access: proxy
+      url: http://course-loki.monitoring.svc:3100
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 5Gi

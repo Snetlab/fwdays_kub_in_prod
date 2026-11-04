@@ -1,0 +1,58 @@
+controller:
+  type: deployment
+rbac:
+  namespaces: [monitoring]
+  rules:
+    - apiGroups: [""]
+      resources: [pods]
+      verbs: [get, list, watch]
+    - apiGroups: [""]
+      resources: [pods/log]
+      verbs: [get]
+alloy:
+  configMap:
+    content: |-
+      discovery.kubernetes "audit" {
+        role = "pod"
+        namespaces {
+          names = ["monitoring"]
+        }
+        selectors {
+          role = "pod"
+          label = "app=kyverno-audit-log"
+        }
+      }
+
+      discovery.relabel "audit" {
+        targets = discovery.kubernetes.audit.targets
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          regex = "audit"
+          action = "keep"
+        }
+        rule {
+          target_label = "job"
+          replacement = "kyverno-pod-audit"
+        }
+      }
+
+      loki.source.kubernetes "audit" {
+        targets = discovery.relabel.audit.output
+        forward_to = [loki.process.audit.receiver]
+      }
+
+      loki.process "audit" {
+        stage.json {
+          expressions = { workload_namespace = "namespace" }
+        }
+        stage.labels {
+          values = { workload_namespace = "" }
+        }
+        forward_to = [loki.write.local.receiver]
+      }
+
+      loki.write "local" {
+        endpoint {
+          url = "http://course-loki.monitoring.svc:3100/loki/api/v1/push"
+        }
+      }

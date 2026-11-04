@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: course-loki
+  namespace: monitoring
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+    schema_config:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    limits_config:
+      retention_period: 168h
+    compactor:
+      working_directory: /loki/compactor
+      retention_enabled: true
+      delete_request_store: filesystem
+    ruler:
+      storage:
+        type: local
+        local:
+          directory: /etc/loki/rules
+      rule_path: /loki/ruler-tmp
+      alertmanager_url: http://course-monitoring-kube-pro-alertmanager.monitoring.svc:9093
+      enable_alertmanager_v2: true
+  audit-rules.yaml: |
+    groups:
+      - name: kyverno-rootfs-audit
+        interval: 15s
+        rules:
+          - alert: KyvernoReadOnlyRootFilesystemAuditFailed
+            expr: sum by (workload_namespace) (count_over_time({job="kyverno-pod-audit"} |= "readOnlyRootFilesystem" [5m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Kyverno root filesystem audit failure in {{ $labels.workload_namespace }}'
+              description: 'Open the Kyverno Root Filesystem Audit dashboard to identify the Pod and inspect its audit message.'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: course-loki
+  namespace: monitoring
+spec:
+  selector:
+    app: course-loki
+  ports:
+    - name: http
+      port: 3100
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: course-loki
+  namespace: monitoring
+spec:
+  serviceName: course-loki
+  replicas: 1
+  selector:
+    matchLabels:
+      app: course-loki
+  template:
+    metadata:
+      labels:
+        app: course-loki
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: loki
+          image: grafana/loki:3.6.16
+          args: ["-config.file=/etc/loki/loki.yaml"]
+          ports:
+            - name: http
+              containerPort: 3100
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+              readOnly: true
+            - name: storage
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: course-loki
+            items:
+              - key: loki.yaml
+                path: loki.yaml
+              - key: audit-rules.yaml
+                path: rules/fake/audit-rules.yaml
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi
