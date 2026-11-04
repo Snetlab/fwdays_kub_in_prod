@@ -1,0 +1,90 @@
+{
+  "uid": "course-kyverno-rootfs-audit",
+  "title": "Kyverno Root Filesystem Audit",
+  "tags": [
+    "course",
+    "kyverno"
+  ],
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Failed audit log entries in the last five minutes",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "course-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (workload_namespace) (count_over_time({job=\"kyverno-pod-audit\"} |= \"readOnlyRootFilesystem\" [5m]))",
+          "datasource": {
+            "type": "loki",
+            "uid": "course-loki"
+          },
+          "legendFormat": "{{workload_namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Audit failure logs with Pod name and reason",
+      "type": "logs",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "course-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"kyverno-pod-audit\"} |= \"readOnlyRootFilesystem\"",
+          "datasource": {
+            "type": "loki",
+            "uid": "course-loki"
+          },
+          "legendFormat": "",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}
