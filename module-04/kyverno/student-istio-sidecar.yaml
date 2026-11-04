@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: module04-student-istio-sidecar
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+  - name: request-student-sidecar
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          namespaces: [student01, student02, student03]
+          operations: [CREATE]
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            +(sidecar.istio.io/inject): "true"
+  - name: require-student-sidecar
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          operations: [CREATE]
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.labels.person || '' }}"
+        operator: Equals
+        value: student
+    validate:
+      failureAction: Enforce
+      message: "Student Pods must have an injected Istio sidecar (istio-proxy)."
+      deny:
+        conditions:
+          any:
+          - key: '{{ request.object.metadata.annotations."sidecar.istio.io/status" || '''' }}'
+            operator: Equals
+            value: ""
+          - key: "{{ length(request.object.spec.containers[?name == 'istio-proxy'] || `[]`) == `0` && length(request.object.spec.initContainers[?name == 'istio-proxy' && restartPolicy == 'Always'] || `[]`) == `0` }}"
+            operator: Equals
+            value: true
