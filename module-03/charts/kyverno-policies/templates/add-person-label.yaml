@@ -1,0 +1,52 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: module02-person
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+  - name: set-mentor
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          namespaces: [{{ .Values.person.mentorNamespace | quote }}]
+          operations: [CREATE, UPDATE]
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            person: mentor
+  - name: set-student
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          namespaces: {{ .Values.person.studentNamespaces | toJson }}
+          operations: [CREATE, UPDATE]
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            person: student
+  - name: remove-person
+    match:
+      any:
+      - resources:
+          kinds: [Pod]
+          operations: [CREATE, UPDATE]
+    exclude:
+      any:
+      - resources:
+          namespaces: {{ prepend .Values.person.studentNamespaces .Values.person.mentorNamespace | toJson }}
+    preconditions:
+      all:
+      - key: person
+        operator: AnyIn
+        value: {{ "{{ keys(request.object.metadata.labels || `{}`) }}" | quote }}
+    mutate:
+      patchesJson6902: |-
+        - op: remove
+          path: /metadata/labels/person

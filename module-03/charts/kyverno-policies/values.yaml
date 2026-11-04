@@ -1,0 +1,6 @@
+person:
+  mentorNamespace: mentor
+  studentNamespaces:
+    - student01
+    - student02
+    - student03
